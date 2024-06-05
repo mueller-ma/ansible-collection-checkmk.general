@@ -1,4 +1,18 @@
 ---
+- name: "Get Site Configuration."  # noqa no-changed-when
+  become: true
+  ansible.builtin.shell: |
+    set -o pipefail
+    omd config {{ outer_item.name }} show
+  args:
+    executable: /bin/bash
+  when: outer_item.state != "absent"
+  register: checkmk_omd_site_config
+  tags:
+    - configure-sites
+
+# ToDo: Check necesessity of config before stopping the site.
+
 - name: "Stop Site."
   become: true
   ansible.builtin.shell: |
@@ -19,7 +33,10 @@
   args:
     executable: /bin/bash
   loop: "{{ outer_item.omd_config }}"
-  when: outer_item.state != "absent"  and outer_item.omd_config | length
+  when: |
+    outer_item.state != "absent"
+    and outer_item.omd_config | length
+    and not checkmk_omd_site_config.stdout_lines is search(item.var+': '+item.value) | bool
   tags:
     - configure-sites
 
